@@ -12,13 +12,3 @@ services:
       - key: FRONTEND_URL
         sync: false
 
-  - type: static
-    name: conservation-quiz-frontend
-    buildCommand: bash build-frontend.sh
-    staticPublishPath: public
-    envVars:
-      - key: REACT_APP_API_URL
-        value: https://conservation-quiz-backend.onrender.com
-      - key: PUBLIC_URL
-        value: /
-
