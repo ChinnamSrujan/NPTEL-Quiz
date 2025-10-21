@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const Score = require('../models/Score');
+
+// In-memory storage for scores (no database needed)
+let scores = [];
 
 // @route   POST /api/scores
 // @desc    Save a new quiz score
 // @access  Public
-router.post('/', async (req, res) => {
+router.post('/', (req, res) => {
   try {
     const { name, score, percentage, timeTaken, totalQuestions } = req.body;
 
@@ -37,19 +39,21 @@ router.post('/', async (req, res) => {
     }
 
     // Create new score record
-    const newScore = new Score({
+    const newScore = {
+      id: Date.now().toString(),
       name: name.trim(),
       score,
       percentage,
       timeTaken: timeTaken || 0,
-      totalQuestions
-    });
+      totalQuestions,
+      timestamp: new Date()
+    };
 
-    const savedScore = await newScore.save();
+    scores.push(newScore);
 
     res.status(201).json({
       message: 'Score saved successfully',
-      data: savedScore
+      data: newScore
     });
 
   } catch (error) {
@@ -64,7 +68,7 @@ router.post('/', async (req, res) => {
 // @route   GET /api/scores
 // @desc    Get all quiz scores with pagination and sorting
 // @access  Public
-router.get('/', async (req, res) => {
+router.get('/', (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -73,39 +77,44 @@ router.get('/', async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    // Build sort object
-    const sort = {};
-    sort[sortBy] = sortOrder;
+    // Sort scores
+    let sortedScores = [...scores];
+    sortedScores.sort((a, b) => {
+      let aVal = a[sortBy];
+      let bVal = b[sortBy];
 
-    // Get scores with pagination
-    const scores = await Score.find()
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .select('-__v');
+      if (sortBy === 'timestamp') {
+        aVal = new Date(aVal);
+        bVal = new Date(bVal);
+      }
 
-    // Get total count for pagination
-    const totalScores = await Score.countDocuments();
+      return sortOrder === 1 ? aVal - bVal : bVal - aVal;
+    });
+
+    // Get paginated scores
+    const paginatedScores = sortedScores.slice(skip, skip + limit);
+    const totalScores = scores.length;
     const totalPages = Math.ceil(totalScores / limit);
 
     // Calculate statistics
-    const stats = await Score.aggregate([
-      {
-        $group: {
-          _id: null,
-          averageScore: { $avg: '$score' },
-          averagePercentage: { $avg: '$percentage' },
-          highestScore: { $max: '$score' },
-          lowestScore: { $min: '$score' },
-          totalAttempts: { $sum: 1 }
-        }
-      }
-    ]);
+    const stats = scores.length > 0 ? {
+      averageScore: (scores.reduce((sum, s) => sum + s.score, 0) / scores.length).toFixed(2),
+      averagePercentage: (scores.reduce((sum, s) => sum + s.percentage, 0) / scores.length).toFixed(2),
+      highestScore: Math.max(...scores.map(s => s.score)),
+      lowestScore: Math.min(...scores.map(s => s.score)),
+      totalAttempts: scores.length
+    } : {
+      averageScore: 0,
+      averagePercentage: 0,
+      highestScore: 0,
+      lowestScore: 0,
+      totalAttempts: 0
+    };
 
     res.json({
       message: 'Scores retrieved successfully',
       data: {
-        scores,
+        scores: paginatedScores,
         pagination: {
           currentPage: page,
           totalPages,
@@ -113,13 +122,7 @@ router.get('/', async (req, res) => {
           hasNextPage: page < totalPages,
           hasPrevPage: page > 1
         },
-        statistics: stats[0] || {
-          averageScore: 0,
-          averagePercentage: 0,
-          highestScore: 0,
-          lowestScore: 0,
-          totalAttempts: 0
-        }
+        statistics: stats
       }
     });
 
@@ -135,12 +138,25 @@ router.get('/', async (req, res) => {
 // @route   GET /api/scores/leaderboard
 // @desc    Get top 10 scores for leaderboard
 // @access  Public
-router.get('/leaderboard', async (req, res) => {
+router.get('/leaderboard', (req, res) => {
   try {
-    const topScores = await Score.find()
-      .sort({ percentage: -1, score: -1, timestamp: 1 })
-      .limit(10)
-      .select('name score percentage timestamp -_id');
+    const topScores = [...scores]
+      .sort((a, b) => {
+        if (b.percentage !== a.percentage) {
+          return b.percentage - a.percentage;
+        }
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        return new Date(a.timestamp) - new Date(b.timestamp);
+      })
+      .slice(0, 10)
+      .map(s => ({
+        name: s.name,
+        score: s.score,
+        percentage: s.percentage,
+        timestamp: s.timestamp
+      }));
 
     res.json({
       message: 'Leaderboard retrieved successfully',
@@ -159,17 +175,19 @@ router.get('/leaderboard', async (req, res) => {
 // @route   DELETE /api/scores/:id
 // @desc    Delete a specific score (optional admin feature)
 // @access  Public (in production, this should be protected)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', (req, res) => {
   try {
     const { id } = req.params;
 
-    const deletedScore = await Score.findByIdAndDelete(id);
+    const scoreIndex = scores.findIndex(s => s.id === id);
 
-    if (!deletedScore) {
+    if (scoreIndex === -1) {
       return res.status(404).json({
         message: 'Score not found'
       });
     }
+
+    const deletedScore = scores.splice(scoreIndex, 1)[0];
 
     res.json({
       message: 'Score deleted successfully',

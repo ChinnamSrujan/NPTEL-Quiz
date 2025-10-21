@@ -1,5 +1,4 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -32,13 +31,8 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('✅ MongoDB connected successfully'))
-.catch(err => console.error('❌ MongoDB connection error:', err));
+// No database needed - using in-memory storage
+console.log('✅ In-memory storage initialized (no database required)');
 
 // Routes
 app.use('/api/scores', require('./routes/scores'));
