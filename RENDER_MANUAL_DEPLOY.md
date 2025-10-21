@@ -69,6 +69,7 @@ Name: conservation-quiz-frontend
 Branch: main
 Build Command: cd frontend && npm install && npm run build
 Publish Directory: frontend/build
+Root Directory: (leave empty)
 ```
 
 ### **2.3 Add Environment Variables**
@@ -84,7 +85,12 @@ Key: PUBLIC_URL
 Value: /
 ```
 
-### **2.4 Deploy**
+### **2.4 Important: Disable render.yaml
+⚠️ **IMPORTANT**: If Render asks about render.yaml, **IGNORE IT** and proceed with manual configuration.
+
+The render.yaml file is for the backend service only. The frontend should be deployed separately.
+
+### **2.5 Deploy**
 1. Click: **"Create Static Site"**
 2. ⏳ Wait 5-10 minutes for deployment
 3. 📋 **Copy your frontend URL** (e.g., `https://conservation-quiz-frontend.onrender.com`)
