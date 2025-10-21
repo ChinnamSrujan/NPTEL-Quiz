@@ -13,9 +13,11 @@ services:
 
   - type: static
     name: conservation-quiz-frontend
-    buildCommand: cd frontend && npm install && npm run build
+    buildCommand: npm install --prefix frontend && npm run build --prefix frontend
     staticPublishPath: frontend/build
     envVars:
       - key: REACT_APP_API_URL
         value: https://conservation-quiz-backend.onrender.com
+      - key: PUBLIC_URL
+        value: /
 

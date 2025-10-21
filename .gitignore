@@ -2,9 +2,10 @@
 node_modules/
 */node_modules/
 
-# Production builds
-build/
-dist/
+# Production builds (backend only)
+/backend/build/
+/backend/dist/
+# Note: frontend/build is needed for Render deployment
 
 # Environment variables
 .env
